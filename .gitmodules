@@ -1,3 +1,6 @@
 [submodule "Assets/uSource"]
 	path = Assets/uSource
 	url = https://github.com/in0finite/uSource
+[submodule "Assets/CsUnitySourceUtils"]
+	path = Assets/CsUnitySourceUtils
+	url = https://github.com/in0finite/CsUnitySourceUtils
