@@ -5,13 +5,21 @@ using System.Linq;
 using UnityEngine;
 using uSource;
 using uSource.MathLib;
+using SourceUtils.ValveBsp;
 
 namespace CsUnity
 {
     public class OcclusionManager : MonoBehaviour
     {
+        // array of PVS sets - index is cluster number, HashSet represents clusters which are visible by that cluster
         private static HashSet<int>[] m_vpsList = System.Array.Empty<HashSet<int>>();
-        private static SourceUtils.ValveBsp.BspTree m_worldSpawnBspTree;
+        
+        // key is cluster number, value is list of leafs that are inside of it
+        private static Dictionary<int, List<BspTree.Leaf>> m_leafsPerCluster = 
+            new Dictionary<int, List<BspTree.Leaf>>();
+
+        private static BspTree m_worldSpawnBspTree;
+        
         private static Renderer[] m_renderers = System.Array.Empty<Renderer>();
 
 
@@ -31,25 +39,58 @@ namespace CsUnity
                 m_vpsList[i] = bspFile.Visibility[i];
             }
 
-            m_worldSpawnBspTree = new SourceUtils.ValveBsp.BspTree(bspFile, 0);
+            m_worldSpawnBspTree = new BspTree(bspFile, 0);
+
+            // cache leafs per clusters
+            m_leafsPerCluster = new Dictionary<int, List<BspTree.Leaf>>();
+            foreach (var leaf in GetAllLeaves())
+            {
+                if (m_leafsPerCluster.TryGetValue(leaf.Info.Cluster, out var list))
+                    list.Add(leaf);
+                else
+                    m_leafsPerCluster.Add(leaf.Info.Cluster, new List<BspTree.Leaf> { leaf });
+            }
 
             m_renderers = Object.FindObjectsOfType<Renderer>();
         }
 
-        static SourceUtils.ValveBsp.BspTree.Leaf GetLeafAt(
-            SourceUtils.ValveBsp.BspTree bspTree,
+        static BspTree.Leaf GetLeafAt(
+            BspTree bspTree,
             UnityEngine.Vector3 pos)
         {
             var converted = Convert(pos);
             return bspTree.GetIntersectingLeaves(converted, converted).SingleOrDefault();
         }
 
-        static SourceUtils.ValveBsp.BspTree.Leaf GetCurrentLeaf()
+        static BspTree.Leaf GetCurrentLeaf()
         {
             if (null == Camera.current)
                 return null;
 
             return GetLeafAt(m_worldSpawnBspTree, Camera.current.transform.position);
+        }
+
+        static IEnumerable<BspTree.Leaf> GetAllLeaves()
+        {
+            var stack = new Stack<BspTree.IElem>();
+            stack.Push(m_worldSpawnBspTree.HeadNode);
+
+            while (stack.Count > 0)
+            {
+                var elem = stack.Pop();
+                if (null == elem)
+                    continue;
+
+                if (elem is BspTree.Node node)
+                {
+                    stack.Push(node.ChildA);
+                    stack.Push(node.ChildB);
+                }
+                else if (elem is BspTree.Leaf leaf)
+                {
+                    yield return leaf;
+                }
+            }
         }
 
         private void OnDrawGizmosSelected()
@@ -59,35 +100,24 @@ namespace CsUnity
 
             var currentLeaf = GetCurrentLeaf();
 
-            var stack = new Stack<SourceUtils.ValveBsp.BspTree.IElem>();
-            stack.Push(m_worldSpawnBspTree.HeadNode);
+            var visibleLeaves = Enumerable.Empty<BspTree.Leaf>();
 
-            while (stack.Count > 0)
+            if (currentLeaf != null && currentLeaf.Info.Cluster >= 0)
             {
-                var elem = stack.Pop();
-                if (null == elem)
+                var visibleClusters = m_vpsList[currentLeaf.Info.Cluster];
+                visibleLeaves = visibleClusters.SelectMany(_ => m_leafsPerCluster[_]);
+            }
+
+            foreach (var leaf in GetAllLeaves())
+            {
+                if (leaf == currentLeaf)
+                    Gizmos.color = Color.blue;
+                else if (visibleLeaves.Contains(leaf))
+                    Gizmos.color = Color.green;
+                else
                     continue;
 
-                SourceUtils.ValveBsp.Vector3S min = default, max = default;
-                if (elem is SourceUtils.ValveBsp.BspTree.Node node)
-                {
-                    Gizmos.color = Color.yellow;
-
-                    min = node.Info.Min;
-                    max = node.Info.Max;
-
-                    stack.Push(node.ChildA);
-                    stack.Push(node.ChildB);
-                }
-                else if (elem is SourceUtils.ValveBsp.BspTree.Leaf leaf)
-                {
-                    Gizmos.color = leaf == currentLeaf ? Color.blue : Color.Lerp(Color.red, Color.yellow, 0.5f);
-
-                    min = leaf.Info.Min;
-                    max = leaf.Info.Max;
-
-                    GizmosDrawCube(min, max);
-                }
+                GizmosDrawCube(leaf.Info.Min, leaf.Info.Max);
             }
 
             // draw all renderers in current leaf
