@@ -22,6 +22,11 @@ namespace CsUnity
         
         private static Renderer[] m_renderers = System.Array.Empty<Renderer>();
 
+        // last leaf where camera was located
+        public static BspTree.Leaf LastLeaf { get; private set; } = null;
+
+        public static int NumClusters => m_vpsList.Length;
+
 
         static OcclusionManager()
         {
@@ -54,24 +59,42 @@ namespace CsUnity
             m_renderers = Object.FindObjectsOfType<Renderer>();
         }
 
-        static BspTree.Leaf GetLeafAt(
-            BspTree bspTree,
-            UnityEngine.Vector3 pos)
+        public static BspTree.Leaf GetLeafAt(UnityEngine.Vector3 pos)
         {
+            if (null == m_worldSpawnBspTree)
+                return null;
+
             var converted = Convert(pos);
-            return bspTree.GetIntersectingLeaves(converted, converted).SingleOrDefault();
+            return m_worldSpawnBspTree.GetIntersectingLeaves(converted, converted).SingleOrDefault();
         }
 
-        static BspTree.Leaf GetCurrentLeaf()
+        public static BspTree.Leaf CalculateCurrentLeaf()
         {
             if (null == Camera.current)
                 return null;
 
-            return GetLeafAt(m_worldSpawnBspTree, Camera.current.transform.position);
+            return GetLeafAt(Camera.current.transform.position);
         }
 
-        static IEnumerable<BspTree.Leaf> GetAllLeaves()
+        public static bool IsLeafVisible(BspTree.Leaf leafFrom, BspTree.Leaf leafTarget)
         {
+            if (leafFrom.Info.Cluster < 0)
+                return false;
+
+            var visibleClusters = m_vpsList[leafFrom.Info.Cluster];
+            return visibleClusters.Contains(leafTarget.Info.Cluster);
+        }
+
+        public static HashSet<int> GetPvsListForCluster(int clusterNumber)
+        {
+            return m_vpsList[clusterNumber];
+        }
+
+        public static IEnumerable<BspTree.Leaf> GetAllLeaves()
+        {
+            if (null == m_worldSpawnBspTree)
+                yield break;
+
             var stack = new Stack<BspTree.IElem>();
             stack.Push(m_worldSpawnBspTree.HeadNode);
 
@@ -98,21 +121,15 @@ namespace CsUnity
             if (null == m_worldSpawnBspTree)
                 return;
 
-            var currentLeaf = GetCurrentLeaf();
+            LastLeaf = CalculateCurrentLeaf();
 
-            var visibleLeaves = Enumerable.Empty<BspTree.Leaf>();
-
-            if (currentLeaf != null && currentLeaf.Info.Cluster >= 0)
-            {
-                var visibleClusters = m_vpsList[currentLeaf.Info.Cluster];
-                visibleLeaves = visibleClusters.SelectMany(_ => m_leafsPerCluster[_]);
-            }
+            var currentLeaf = LastLeaf;
 
             foreach (var leaf in GetAllLeaves())
             {
                 if (leaf == currentLeaf)
                     Gizmos.color = Color.blue;
-                else if (visibleLeaves.Contains(leaf))
+                else if (IsLeafVisible(currentLeaf, leaf))
                     Gizmos.color = Color.green;
                 else
                     continue;
@@ -129,7 +146,7 @@ namespace CsUnity
             }*/
         }
 
-        static void GizmosDrawCube(SourceUtils.ValveBsp.Vector3S min, SourceUtils.ValveBsp.Vector3S max)
+        static void GizmosDrawCube(Vector3S min, Vector3S max)
         {
             UnityEngine.Vector3 convertedMin = Convert(min);
             UnityEngine.Vector3 convertedMax = Convert(max);
@@ -140,7 +157,7 @@ namespace CsUnity
             Gizmos.DrawWireCube((convertedMin + convertedMax) * 0.5f, convertedMax - convertedMin);
         }
 
-        static UnityEngine.Vector3 Convert(SourceUtils.ValveBsp.Vector3S v)
+        static UnityEngine.Vector3 Convert(Vector3S v)
         {
             var Vector3D = v.ToUnityVec3();
 
