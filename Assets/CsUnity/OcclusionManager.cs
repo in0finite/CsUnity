@@ -20,7 +20,7 @@ namespace CsUnity
 
         private static BspTree m_worldSpawnBspTree;
         
-        private static Renderer[] m_renderers = System.Array.Empty<Renderer>();
+        private static List<Renderer>[] m_renderersPerCluster = System.Array.Empty<List<Renderer>>();
 
         // last leaf where camera was located
         public static BspTree.Leaf LastLeaf { get; private set; } = null;
@@ -56,7 +56,32 @@ namespace CsUnity
                     m_leafsPerCluster.Add(leaf.Info.Cluster, new List<BspTree.Leaf> { leaf });
             }
 
-            m_renderers = Object.FindObjectsOfType<Renderer>();
+            // cache renderers, so they can be quickly enabled/disabled later
+            m_renderersPerCluster = new List<Renderer>[numClusters];
+            var allRenderers = Object.FindObjectsOfType<Renderer>();
+            var intersectingLeavesList = new List<BspTree.Leaf>();
+            var intersectingClusters = new HashSet<int>();
+            for (int i = 0; i < allRenderers.Length; i++)
+            {
+                var r = allRenderers[i];
+
+                if (!r.gameObject.isStatic)
+                    continue;
+
+                var bounds = r.bounds;
+
+                intersectingLeavesList.Clear();
+                intersectingClusters.Clear();
+                m_worldSpawnBspTree.GetIntersectingLeaves(Convert(bounds.min), Convert(bounds.max), intersectingLeavesList);
+                for (int j = 0; j < intersectingLeavesList.Count; j++)
+                    intersectingClusters.Add(intersectingLeavesList[j].Info.Cluster);
+
+                foreach (int clusterIndex in intersectingClusters)
+                {
+                    m_renderersPerCluster[clusterIndex] ??= new List<Renderer>();
+                    m_renderersPerCluster[clusterIndex].Add(r);
+                }
+            }
         }
 
         public static BspTree.Leaf GetLeafAt(UnityEngine.Vector3 pos)
@@ -78,16 +103,26 @@ namespace CsUnity
 
         public static bool IsLeafVisible(BspTree.Leaf leafFrom, BspTree.Leaf leafTarget)
         {
+            return IsClusterVisible(leafFrom, leafTarget.Info.Cluster);
+        }
+
+        public static bool IsClusterVisible(BspTree.Leaf leafFrom, int clusterNumber)
+        {
             if (leafFrom.Info.Cluster < 0)
                 return false;
 
             var visibleClusters = m_vpsList[leafFrom.Info.Cluster];
-            return visibleClusters.Contains(leafTarget.Info.Cluster);
+            return visibleClusters.Contains(clusterNumber);
         }
 
         public static HashSet<int> GetPvsListForCluster(int clusterNumber)
         {
             return m_vpsList[clusterNumber];
+        }
+
+        public static IReadOnlyList<Renderer> GetRenderersInCluster(int clusterNumber)
+        {
+            return (IReadOnlyList<Renderer>)m_renderersPerCluster[clusterNumber] ?? System.Array.Empty<Renderer>();
         }
 
         public static IEnumerable<BspTree.Leaf> GetAllLeaves()
