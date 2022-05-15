@@ -219,7 +219,7 @@ namespace CsUnity
             if (null == m_worldSpawnBspTree)
                 return;
 
-            var currentLeaf = CalculateCurrentLeaf();
+            var currentLeaf = Application.isPlaying ? LastLeaf : CalculateCurrentLeaf();
 
             foreach (var leaf in GetAllLeaves())
             {
