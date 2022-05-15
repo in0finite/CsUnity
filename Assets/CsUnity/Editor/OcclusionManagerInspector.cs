@@ -44,6 +44,7 @@ namespace CsUnity.Editor
             EditorGUILayout.LabelField($"num clusters: {OcclusionManager.NumClusters}");
             EditorGUILayout.LabelField($"num visible clusters: {numVisibleClusters}");
             EditorGUILayout.LabelField($"num renderers: {numRenderers}");
+            EditorGUILayout.LabelField($"num renderers in culling system: {OcclusionManager.NumRenderersInCullingSystem}");
             EditorGUILayout.LabelField($"num visible renderers: {numVisibleRenderers}");
             EditorGUILayout.LabelField($"average renderers per cluster: {numRenderers / (float)OcclusionManager.NumClusters}");
             EditorGUILayout.LabelField($"average references per visible renderer: {numReferences / (float)numVisibleRenderers}");

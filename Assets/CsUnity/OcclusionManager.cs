@@ -38,6 +38,8 @@ namespace CsUnity
         // entry in the list represents index of renderer
         private static List<int>[] m_renderersPerCluster = System.Array.Empty<List<int>>();
 
+        public static int NumRenderersInCullingSystem { get; private set; } = 0;
+
         // last leaf where camera was located
         public static BspTree.Leaf LastLeaf { get; private set; } = null;
 
@@ -99,6 +101,7 @@ namespace CsUnity
                 m_rendererInfos[i] = new RendererInfo { renderer = allRenderers[i] };
 
             // compute renderers per cluster
+            NumRenderersInCullingSystem = 0;
             m_renderersPerCluster = new List<int>[numClusters];
             var intersectingLeavesList = new List<BspTree.Leaf>();
             var intersectingClusters = new HashSet<int>();
@@ -122,6 +125,11 @@ namespace CsUnity
                     m_renderersPerCluster[clusterIndex] ??= new List<int>();
                     m_renderersPerCluster[clusterIndex].Add(rendererIndex);
                 }
+
+                if (intersectingClusters.Count > 0)
+                    NumRenderersInCullingSystem++;
+            }
+        }
 
         private static bool IsAnyParentStatic(Transform tr)
         {
