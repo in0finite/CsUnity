@@ -109,7 +109,7 @@ namespace CsUnity
             {
                 var r = m_rendererInfos[rendererIndex].renderer;
 
-                if (!r.gameObject.isStatic && !IsAnyParentStatic(r.transform))
+                if (!ShouldIncludeRenderer(r))
                     continue;
 
                 var bounds = r.bounds;
@@ -129,6 +129,17 @@ namespace CsUnity
                 if (intersectingClusters.Count > 0)
                     NumRenderersInCullingSystem++;
             }
+        }
+
+        private static bool ShouldIncludeRenderer(Renderer renderer)
+        {
+            if (renderer.name.Contains("TOOLS/"))
+                return false;
+
+            if (!renderer.gameObject.isStatic && !IsAnyParentStatic(renderer.transform))
+                return false;
+
+            return true;
         }
 
         private static bool IsAnyParentStatic(Transform tr)
