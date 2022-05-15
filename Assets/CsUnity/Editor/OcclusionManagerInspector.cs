@@ -27,14 +27,15 @@ namespace CsUnity.Editor
                 ? OcclusionManager.GetPvsListForCluster(currentLeaf.Info.Cluster).Count
                 : 0;
 
-            int numRenderers = 0;
-            int numVisibleRenderers = 0;            
-            for (int i = 0; i < OcclusionManager.NumClusters; i++)
+            int numRenderers = OcclusionManager.NumRenderers;
+            int numVisibleRenderers = 0;
+            long numReferences = 0;
+            for (int i = 0; i < OcclusionManager.NumRenderers; i++)
             {
-                var renderers = OcclusionManager.GetRenderersInCluster(i);
-                numRenderers += renderers.Count;
-                if (currentLeaf != null && OcclusionManager.IsClusterVisible(currentLeaf, i))
-                    numVisibleRenderers += renderers.Count;
+                var rendererInfo = OcclusionManager.GetRenderer(i);
+                if (rendererInfo.numClustersReferencing > 0)
+                    numVisibleRenderers++;
+                numReferences += rendererInfo.numClustersReferencing;
             }
 
             GUILayout.Space(20);
@@ -45,6 +46,7 @@ namespace CsUnity.Editor
             EditorGUILayout.LabelField($"num renderers: {numRenderers}");
             EditorGUILayout.LabelField($"num visible renderers: {numVisibleRenderers}");
             EditorGUILayout.LabelField($"average renderers per cluster: {numRenderers / (float)OcclusionManager.NumClusters}");
+            EditorGUILayout.LabelField($"average references per visible renderer: {numReferences / (float)numVisibleRenderers}");
 
             GUILayout.Space(20);
 

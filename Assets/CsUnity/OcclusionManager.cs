@@ -22,8 +22,21 @@ namespace CsUnity
             new Dictionary<int, List<BspTree.Leaf>>();
 
         private static BspTree m_worldSpawnBspTree;
-        
-        private static List<Renderer>[] m_renderersPerCluster = System.Array.Empty<List<Renderer>>();
+
+        public struct RendererInfo
+        {
+            public Renderer renderer;
+            // Num visible clusters that are referencing this renderer.
+            // When the renderer is no longer referenced, it will be disabled.
+            public short numClustersReferencing;
+        }
+
+        private static RendererInfo[] m_rendererInfos = System.Array.Empty<RendererInfo>();
+
+        public static int NumRenderers => m_rendererInfos.Length;
+
+        // entry in the list represents index of renderer
+        private static List<int>[] m_renderersPerCluster = System.Array.Empty<List<int>>();
 
         // last leaf where camera was located
         public static BspTree.Leaf LastLeaf { get; private set; } = null;
@@ -45,7 +58,10 @@ namespace CsUnity
         {
             var obj = FindObjectOfType<OcclusionManager>();
             if (null == obj)
+            {
+                Debug.LogError($"Failed to find {nameof(OcclusionManager)} object");
                 return;
+            }
 
             UnityEditor.EditorApplication.update -= obj.EditorUpdate;
             UnityEditor.EditorApplication.update += obj.EditorUpdate;
@@ -77,13 +93,18 @@ namespace CsUnity
             }
 
             // cache renderers, so they can be quickly enabled/disabled later
-            m_renderersPerCluster = new List<Renderer>[numClusters];
             var allRenderers = Object.FindObjectsOfType<Renderer>();
+            m_rendererInfos = new RendererInfo[allRenderers.Length];
+            for (int i = 0; i < m_rendererInfos.Length; i++)
+                m_rendererInfos[i] = new RendererInfo { renderer = allRenderers[i] };
+
+            // compute renderers per cluster
+            m_renderersPerCluster = new List<int>[numClusters];
             var intersectingLeavesList = new List<BspTree.Leaf>();
             var intersectingClusters = new HashSet<int>();
-            for (int i = 0; i < allRenderers.Length; i++)
+            for (int rendererIndex = 0; rendererIndex < m_rendererInfos.Length; rendererIndex++)
             {
-                var r = allRenderers[i];
+                var r = m_rendererInfos[rendererIndex].renderer;
 
                 if (!r.gameObject.isStatic)
                     continue;
@@ -98,8 +119,8 @@ namespace CsUnity
 
                 foreach (int clusterIndex in intersectingClusters)
                 {
-                    m_renderersPerCluster[clusterIndex] ??= new List<Renderer>();
-                    m_renderersPerCluster[clusterIndex].Add(r);
+                    m_renderersPerCluster[clusterIndex] ??= new List<int>();
+                    m_renderersPerCluster[clusterIndex].Add(rendererIndex);
                 }
             }
         }
@@ -140,9 +161,14 @@ namespace CsUnity
             return m_vpsList[clusterNumber];
         }
 
-        public static IReadOnlyList<Renderer> GetRenderersInCluster(int clusterNumber)
+        public static IReadOnlyList<int> GetRenderersInCluster(int clusterNumber)
         {
-            return (IReadOnlyList<Renderer>)m_renderersPerCluster[clusterNumber] ?? System.Array.Empty<Renderer>();
+            return (IReadOnlyList<int>)m_renderersPerCluster[clusterNumber] ?? System.Array.Empty<int>();
+        }
+
+        public static RendererInfo GetRenderer(int rendererIndex)
+        {
+            return m_rendererInfos[rendererIndex];
         }
 
         public static IEnumerable<BspTree.Leaf> GetAllLeaves()
@@ -200,10 +226,10 @@ namespace CsUnity
             if (currentLeaf != null)
             {
                 Gizmos.color = Color.red;
-                var renderers = m_renderersPerCluster[currentLeaf.Info.Cluster];
-                foreach (var renderer in renderers)
+                var rendererIndexes = m_renderersPerCluster[currentLeaf.Info.Cluster];
+                foreach (var rendererIndex in rendererIndexes)
                 {
-                    var bounds = renderer.bounds;
+                    Bounds bounds = m_rendererInfos[rendererIndex].renderer.bounds;
                     GizmosDrawCube(bounds.min, bounds.max);
                 }
             }
@@ -285,8 +311,8 @@ namespace CsUnity
 
             // current leaf changed to a valid one - update renderers
 
-            int newVisibleClusterIndex = newLeaf.Info.Cluster;
-            var newVisibleClusters = m_vpsList[newVisibleClusterIndex];
+            int newClusterIndex = newLeaf.Info.Cluster;
+            var newVisibleClusters = m_vpsList[newClusterIndex];
 
             int numOldVisibleClusters = 0;
             int numClustersActivated = 0;
@@ -294,10 +320,35 @@ namespace CsUnity
 
             if (null == oldLeaf)
             {
+                // initial situation
                 // all renderers were enabled
                 // disable all renderers except newly visible ones
-                for (int i = 0; i < NumClusters; i++)
-                    EnableRenderers(m_renderersPerCluster[i], i == newVisibleClusterIndex);
+
+                // disable renderers which are not in visible clusters
+                // note: they can still be visible
+                for (int clusterIndex = 0; clusterIndex < m_renderersPerCluster.Length; clusterIndex++)
+                {
+                    if (newVisibleClusters.Contains(clusterIndex))
+                        continue;
+
+                    var list = m_renderersPerCluster[clusterIndex];
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        int rendererIndex = list[i];
+                        RendererInfo temp = m_rendererInfos[rendererIndex];
+                        temp.numClustersReferencing = 0;
+                        m_rendererInfos[rendererIndex] = temp;
+
+                        temp.renderer.enabled = false;
+                    }
+                }
+
+                // enable renderers which are in visible clusters
+                foreach (int clusterIndex in newVisibleClusters)
+                {
+                    IncReference(m_renderersPerCluster[clusterIndex], 1);
+                }
+
             }
             else
             {
@@ -308,7 +359,7 @@ namespace CsUnity
                 {
                     if (!oldVisibleClusters.Contains(cluster)) // this cluster just became visible
                     {
-                        EnableRenderers(m_renderersPerCluster[cluster], true);
+                        IncReference(m_renderersPerCluster[cluster], 1);
                         numClustersActivated++;
                     }
                 }
@@ -317,7 +368,7 @@ namespace CsUnity
                 {
                     if (!newVisibleClusters.Contains(cluster)) // this cluster just became invisible
                     {
-                        EnableRenderers(m_renderersPerCluster[cluster], false);
+                        IncReference(m_renderersPerCluster[cluster], -1);
                         numClustersDeactivated++;
                     }
                 }
@@ -334,10 +385,23 @@ namespace CsUnity
                 $"num clusters became invisible {numClustersDeactivated}");
         }
 
-        static void EnableRenderers(List<Renderer> renderers, bool enable)
+        static void EnableRenderers(List<int> renderers, bool enable)
         {
             for (int i = 0; i < renderers.Count; i++)
-                renderers[i].enabled = enable;
+                m_rendererInfos[renderers[i]].renderer.enabled = enable;
+        }
+
+        void IncReference(List<int> rendererIndexes, short incAmount)
+        {
+            for (int i = 0; i < rendererIndexes.Count; i++)
+            {
+                int rendererIndex = rendererIndexes[i];
+                RendererInfo temp = m_rendererInfos[rendererIndex];
+                temp.numClustersReferencing += incAmount;
+                m_rendererInfos[rendererIndex] = temp;
+
+                temp.renderer.enabled = temp.numClustersReferencing > 0;
+            }
         }
     }
 }
