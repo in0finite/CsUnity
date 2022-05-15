@@ -314,6 +314,11 @@ namespace CsUnity
 
         private void UpdateCulling()
         {
+#if UNITY_EDITOR
+            if (UnityEditor.EditorApplication.isPaused) // don't use scene view camera
+                return;
+#endif
+
             if (null == Camera.current)
                 return;
 
