@@ -106,7 +106,7 @@ namespace CsUnity
             {
                 var r = m_rendererInfos[rendererIndex].renderer;
 
-                if (!r.gameObject.isStatic)
+                if (!r.gameObject.isStatic && !IsAnyParentStatic(r.transform))
                     continue;
 
                 var bounds = r.bounds;
@@ -122,7 +122,18 @@ namespace CsUnity
                     m_renderersPerCluster[clusterIndex] ??= new List<int>();
                     m_renderersPerCluster[clusterIndex].Add(rendererIndex);
                 }
+
+        private static bool IsAnyParentStatic(Transform tr)
+        {
+            tr = tr.parent;
+            while (tr != null)
+            {
+                if (tr.gameObject.isStatic)
+                    return true;
+                tr = tr.parent;
             }
+
+            return false;
         }
 
         public static BspTree.Leaf GetLeafAt(UnityEngine.Vector3 pos)
