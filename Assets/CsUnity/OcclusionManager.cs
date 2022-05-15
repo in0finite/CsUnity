@@ -54,6 +54,8 @@ namespace CsUnity
 
         private static void OnMapLoaded(ValveBspFile bspFile)
         {
+            Debug.Log("OcclusionManager: initializing map data");
+
             // we need to iterate through all PVS sets, because VisibilityLump does lazy loading
             int numClusters = bspFile.Visibility.NumClusters;
             m_vpsList = new HashSet<int>[numClusters];
