@@ -12,17 +12,19 @@ namespace CsUnity.Editor
         {
             base.DrawDefaultInspector();
 
+            var currentLeaf = OcclusionManager.LastLeaf;
+
             int numLeaves = 0;
             int numVisibleLeaves = 0;
             foreach (var leaf in OcclusionManager.GetAllLeaves())
             {
                 numLeaves++;
-                if (OcclusionManager.LastLeaf != null && OcclusionManager.IsLeafVisible(OcclusionManager.LastLeaf, leaf))
+                if (currentLeaf != null && OcclusionManager.IsLeafVisible(currentLeaf, leaf))
                     numVisibleLeaves++;
             }
 
-            int numVisibleClusters = OcclusionManager.LastLeaf != null
-                ? OcclusionManager.GetPvsListForCluster(OcclusionManager.LastLeaf.Info.Cluster).Count
+            int numVisibleClusters = currentLeaf != null
+                ? OcclusionManager.GetPvsListForCluster(currentLeaf.Info.Cluster).Count
                 : 0;
 
             int numRenderers = 0;
@@ -31,7 +33,7 @@ namespace CsUnity.Editor
             {
                 var renderers = OcclusionManager.GetRenderersInCluster(i);
                 numRenderers += renderers.Count;
-                if (OcclusionManager.LastLeaf != null && OcclusionManager.IsClusterVisible(OcclusionManager.LastLeaf, i))
+                if (currentLeaf != null && OcclusionManager.IsClusterVisible(currentLeaf, i))
                     numVisibleRenderers += renderers.Count;
             }
 
@@ -43,6 +45,13 @@ namespace CsUnity.Editor
             EditorGUILayout.LabelField($"num renderers: {numRenderers}");
             EditorGUILayout.LabelField($"num visible renderers: {numVisibleRenderers}");
             EditorGUILayout.LabelField($"average renderers per cluster: {numRenderers / (float)OcclusionManager.NumClusters}");
+
+            GUILayout.Space(20);
+
+            if (GUILayout.Button("Enable all renderers"))
+                OcclusionManager.EnableAllRenderers(true);
+            if (GUILayout.Button("Disable all renderers"))
+                OcclusionManager.EnableAllRenderers(false);
         }
     }
 }

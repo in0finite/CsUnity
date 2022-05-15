@@ -11,6 +11,9 @@ namespace CsUnity
 {
     public class OcclusionManager : MonoBehaviour
     {
+        public bool performCulling = true;
+        public bool performCullingInEditMode = false;
+
         // array of PVS sets - index is cluster number, HashSet represents clusters which are visible by that cluster
         private static HashSet<int>[] m_vpsList = System.Array.Empty<HashSet<int>>();
         
@@ -27,12 +30,27 @@ namespace CsUnity
 
         public static int NumClusters => m_vpsList.Length;
 
+        private readonly System.Diagnostics.Stopwatch m_stopwatch = new System.Diagnostics.Stopwatch();
+
 
         static OcclusionManager()
         {
             CsGameManager.OnMapLoaded -= OnMapLoaded;
             CsGameManager.OnMapLoaded += OnMapLoaded;
         }
+
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void InitializeOnLoad()
+        {
+            var obj = FindObjectOfType<OcclusionManager>();
+            if (null == obj)
+                return;
+
+            UnityEditor.EditorApplication.update -= obj.EditorUpdate;
+            UnityEditor.EditorApplication.update += obj.EditorUpdate;
+        }
+#endif
 
         private static void OnMapLoaded(ValveBspFile bspFile)
         {
@@ -151,20 +169,24 @@ namespace CsUnity
             }
         }
 
+        public static void EnableAllRenderers(bool enable)
+        {
+            foreach (var renderers in m_renderersPerCluster)
+                EnableRenderers(renderers, enable);
+        }
+
         private void OnDrawGizmosSelected()
         {
             if (null == m_worldSpawnBspTree)
                 return;
 
-            LastLeaf = CalculateCurrentLeaf();
-
-            var currentLeaf = LastLeaf;
+            var currentLeaf = CalculateCurrentLeaf();
 
             foreach (var leaf in GetAllLeaves())
             {
                 if (leaf == currentLeaf)
                     Gizmos.color = Color.blue;
-                else if (IsLeafVisible(currentLeaf, leaf))
+                else if (currentLeaf != null && IsLeafVisible(currentLeaf, leaf))
                     Gizmos.color = Color.green;
                 else
                     continue;
@@ -172,24 +194,34 @@ namespace CsUnity
                 GizmosDrawCube(leaf.Info.Min, leaf.Info.Max);
             }
 
-            // draw all renderers in current leaf
-
-            /*for (int i = 0; i < m_renderers.Length; i++)
+            // draw all renderers in current cluster
+            if (currentLeaf != null)
             {
-                var renderer = m_renderers[i];
-                m_worldSpawnBspTree.GetIntersectingLeaves(renderer.bounds.min, renderer.bounds.max);
-            }*/
+                Gizmos.color = Color.red;
+                var renderers = m_renderersPerCluster[currentLeaf.Info.Cluster];
+                foreach (var renderer in renderers)
+                {
+                    var bounds = renderer.bounds;
+                    GizmosDrawCube(bounds.min, bounds.max);
+                }
+            }
+
         }
 
         static void GizmosDrawCube(Vector3S min, Vector3S max)
         {
             UnityEngine.Vector3 convertedMin = Convert(min);
             UnityEngine.Vector3 convertedMax = Convert(max);
+            GizmosDrawCube(convertedMin, convertedMax);
+        }
 
-            convertedMin += UnityEngine.Vector3.one * 0.15f;
-            convertedMax -= UnityEngine.Vector3.one * 0.15f;
+        static void GizmosDrawCube(UnityEngine.Vector3 min, UnityEngine.Vector3 max)
+        {
+            // add some offset so we can easily distinguish between neighbouring boxes
+            min += UnityEngine.Vector3.one * 0.15f;
+            max -= UnityEngine.Vector3.one * 0.15f;
 
-            Gizmos.DrawWireCube((convertedMin + convertedMax) * 0.5f, convertedMax - convertedMin);
+            Gizmos.DrawWireCube((min + max) * 0.5f, max - min);
         }
 
         static UnityEngine.Vector3 Convert(Vector3S v)
@@ -216,6 +248,94 @@ namespace CsUnity
             result.Z = v.y;
 
             return result;
+        }
+
+        private void LateUpdate()
+        {
+            if (this.performCulling)
+                this.UpdateCulling();
+        }
+
+        private void EditorUpdate()
+        {
+            if (Application.isPlaying)
+                return; // it will be done in regular updates
+
+            if (this.performCulling && this.performCullingInEditMode)
+                this.UpdateCulling();
+        }
+
+        private void UpdateCulling()
+        {
+            if (null == Camera.current)
+                return;
+
+            var newLeaf = GetLeafAt(Camera.current.transform.position);
+            if (newLeaf == LastLeaf)
+                return;
+
+            if (null == newLeaf)
+                return; // don't update anything
+
+            m_stopwatch.Restart();
+
+            var oldLeaf = LastLeaf;
+
+            // current leaf changed to a valid one - update renderers
+
+            int newVisibleClusterIndex = newLeaf.Info.Cluster;
+            var newVisibleClusters = m_vpsList[newVisibleClusterIndex];
+
+            int numOldVisibleClusters = 0;
+            int numClustersActivated = 0;
+            int numClustersDeactivated = 0;
+
+            if (null == oldLeaf)
+            {
+                // all renderers were enabled
+                // disable all renderers except newly visible ones
+                for (int i = 0; i < NumClusters; i++)
+                    EnableRenderers(m_renderersPerCluster[i], i == newVisibleClusterIndex);
+            }
+            else
+            {
+                var oldVisibleClusters = m_vpsList[oldLeaf.Info.Cluster];
+                numOldVisibleClusters = oldVisibleClusters.Count;
+
+                foreach (int cluster in newVisibleClusters)
+                {
+                    if (!oldVisibleClusters.Contains(cluster)) // this cluster just became visible
+                    {
+                        EnableRenderers(m_renderersPerCluster[cluster], true);
+                        numClustersActivated++;
+                    }
+                }
+
+                foreach (int cluster in oldVisibleClusters)
+                {
+                    if (!newVisibleClusters.Contains(cluster)) // this cluster just became invisible
+                    {
+                        EnableRenderers(m_renderersPerCluster[cluster], false);
+                        numClustersDeactivated++;
+                    }
+                }
+            }
+
+            LastLeaf = newLeaf;
+
+            double elapsedMs = m_stopwatch.Elapsed.TotalMilliseconds;
+            Debug.Log($"Culling updated: " +
+                $"elapsed {elapsedMs} ms, " +
+                $"old num clusters visible {numOldVisibleClusters}, " +
+                $"new num clusters visible {newVisibleClusters.Count}, " +
+                $"num clusters became visible {numClustersActivated}, " +
+                $"num clusters became invisible {numClustersDeactivated}");
+        }
+
+        static void EnableRenderers(List<Renderer> renderers, bool enable)
+        {
+            for (int i = 0; i < renderers.Count; i++)
+                renderers[i].enabled = enable;
         }
     }
 }
