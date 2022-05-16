@@ -12,5 +12,10 @@ namespace CsUnity
         {
             Application.targetFrameRate = this.fpsLimit;
         }
+
+        void OnValidate()
+        {
+            Application.targetFrameRate = this.fpsLimit;
+        }
     }
 }
