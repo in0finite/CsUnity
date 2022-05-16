@@ -438,11 +438,17 @@ namespace CsUnity
             for (int i = 0; i < rendererIndexes.Count; i++)
             {
                 int rendererIndex = rendererIndexes[i];
+
                 RendererInfo temp = m_rendererInfos[rendererIndex];
                 temp.numClustersReferencing += incAmount;
                 m_rendererInfos[rendererIndex] = temp;
 
-                temp.renderer.enabled = temp.numClustersReferencing > 0;
+                if (temp.numClustersReferencing == 0)
+                    temp.renderer.enabled = false;
+                else if (temp.numClustersReferencing == 1)
+                    temp.renderer.enabled = true;
+                else if (temp.numClustersReferencing < 0)
+                    Debug.LogError($"Renderer is referenced by {temp.numClustersReferencing} clusters. This should not happen.", temp.renderer);
             }
         }
     }
