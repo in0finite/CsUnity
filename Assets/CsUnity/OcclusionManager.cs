@@ -106,6 +106,8 @@ namespace CsUnity
             // compute renderers per cluster
             NumRenderersInCullingSystem = 0;
             m_renderersPerCluster = new List<int>[numClusters];
+            for (int i = 0; i < m_renderersPerCluster.Length; i++)
+                m_renderersPerCluster[i] = new List<int>();
             var intersectingLeavesList = new List<BspTree.Leaf>();
             var intersectingClusters = new HashSet<int>();
             for (int rendererIndex = 0; rendererIndex < m_rendererInfos.Length; rendererIndex++)
@@ -124,11 +126,8 @@ namespace CsUnity
                     intersectingClusters.Add(intersectingLeavesList[j].Info.Cluster);
 
                 foreach (int clusterIndex in intersectingClusters)
-                {
-                    m_renderersPerCluster[clusterIndex] ??= new List<int>();
                     m_renderersPerCluster[clusterIndex].Add(rendererIndex);
-                }
-
+                
                 if (intersectingClusters.Count > 0)
                     NumRenderersInCullingSystem++;
             }
