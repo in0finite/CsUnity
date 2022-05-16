@@ -7,6 +7,7 @@ namespace CsUnity
         public Color color = Color.red;
         public bool wireframe = true;
         public bool includeChildren = true;
+        public bool drawSurroundingLeaves = true;
 
 
 #if UNITY_EDITOR
@@ -34,6 +35,13 @@ namespace CsUnity
                     Gizmos.DrawWireCube(bounds.center, bounds.size);
                 else
                     Gizmos.DrawCube(bounds.center, bounds.size);
+
+                if (this.drawSurroundingLeaves)
+                {
+                    Gizmos.color = Color.yellow;
+                    foreach (var leaf in OcclusionManager.GetAllLeavesIntersectingBounds(bounds))
+                        OcclusionManager.GizmosDrawCube(leaf.Info.Min, leaf.Info.Max);
+                }
             }
         }
     }

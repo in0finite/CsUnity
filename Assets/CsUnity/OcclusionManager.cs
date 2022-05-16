@@ -164,6 +164,13 @@ namespace CsUnity
             return m_worldSpawnBspTree.GetIntersectingLeaves(converted, converted).SingleOrDefault();
         }
 
+        public static IEnumerable<BspTree.Leaf> GetAllLeavesIntersectingBounds(Bounds bounds)
+        {
+            if (null == m_worldSpawnBspTree)
+                return System.Array.Empty<BspTree.Leaf>();
+            return m_worldSpawnBspTree.GetIntersectingLeaves(Convert(bounds.min), Convert(bounds.max));
+        }
+
         public static BspTree.Leaf CalculateCurrentLeaf()
         {
             if (null == Camera.current)
@@ -266,7 +273,7 @@ namespace CsUnity
 
         }
 
-        static void GizmosDrawCube(Vector3S min, Vector3S max)
+        public static void GizmosDrawCube(Vector3S min, Vector3S max)
         {
             UnityEngine.Vector3 convertedMin = Convert(min);
             UnityEngine.Vector3 convertedMax = Convert(max);
