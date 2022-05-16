@@ -188,11 +188,16 @@ namespace CsUnity
 
         public static bool IsClusterVisible(BspTree.Leaf leafFrom, int clusterNumber)
         {
-            if (leafFrom.Info.Cluster < 0)
+            return IsClusterVisible(leafFrom.Info.Cluster, clusterNumber);
+        }
+
+        public static bool IsClusterVisible(int clusterFrom, int clusterTarget)
+        {
+            if (clusterFrom < 0)
                 return false;
 
-            var visibleClusters = m_vpsList[leafFrom.Info.Cluster];
-            return visibleClusters.Contains(clusterNumber);
+            var visibleClusters = m_vpsList[clusterFrom];
+            return visibleClusters.Contains(clusterTarget);
         }
 
         public static HashSet<int> GetPvsListForCluster(int clusterNumber)
@@ -248,25 +253,38 @@ namespace CsUnity
                 return;
 
             var currentLeaf = Application.isPlaying ? LastLeaf : CalculateCurrentLeaf();
-
-            foreach (var leaf in GetAllLeaves())
+            int currentCluster = currentLeaf != null ? currentLeaf.Info.Cluster : -1;
+            
+            for (int clusterIndex = 0; clusterIndex < NumClusters; clusterIndex++)
             {
-                if (leaf == currentLeaf)
+                if (!m_leafsPerCluster.TryGetValue(clusterIndex, out var leaves))
+                    continue;
+
+                if (clusterIndex == currentCluster)
                     Gizmos.color = Color.blue;
-                else if (currentLeaf != null && IsLeafVisible(currentLeaf, leaf))
+                else if (currentCluster != -1 && IsClusterVisible(currentCluster, clusterIndex))
                     Gizmos.color = Color.green;
                 else
                     continue;
 
-                GizmosDrawCube(leaf.Info.Min, leaf.Info.Max);
+                // find bounds of all leaves in this cluster
+                UnityEngine.Vector3 min = Convert(leaves[0].Info.Min);
+                UnityEngine.Vector3 max = Convert(leaves[0].Info.Max);
+                for (int i = 1; i < leaves.Count; i++)
+                {
+                    min = UnityEngine.Vector3.Min(min, Convert(leaves[i].Info.Min));
+                    max = UnityEngine.Vector3.Max(max, Convert(leaves[i].Info.Max));
+                }
+
+                GizmosDrawCube(min, max);
             }
 
             // draw all renderers in current cluster
-            if (currentLeaf != null)
+            if (currentCluster != -1)
             {
                 Gizmos.color = Color.red;
-                var rendererIndexes = m_renderersPerCluster[currentLeaf.Info.Cluster];
-                foreach (var rendererIndex in rendererIndexes)
+                var rendererIndexes = m_renderersPerCluster[currentCluster];
+                foreach (int rendererIndex in rendererIndexes)
                 {
                     Bounds bounds = m_rendererInfos[rendererIndex].renderer.bounds;
                     GizmosDrawCube(bounds.min, bounds.max);
