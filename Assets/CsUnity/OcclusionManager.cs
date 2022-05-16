@@ -100,6 +100,9 @@ namespace CsUnity
             for (int i = 0; i < m_rendererInfos.Length; i++)
                 m_rendererInfos[i] = new RendererInfo { renderer = allRenderers[i] };
 
+            // reset last leaf
+            LastLeaf = null;
+
             // compute renderers per cluster
             NumRenderersInCullingSystem = 0;
             m_renderersPerCluster = new List<int>[numClusters];
