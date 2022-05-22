@@ -7,28 +7,74 @@ using SourceUtils;
 
 namespace CsUnity
 {
-    public class CsGameManager
+    public class CsGameManager : MonoBehaviour
     {
         public static event System.Action<ValveBspFile> OnMapLoaded = delegate { };
+
+        public static CsGameManager Instance { get; private set; }
+
+        public LayerMask dynamicLightsLayerMask = 0;
+        public LightShadowCasterMode lightShadowCasterMode = LightShadowCasterMode.Default;
 
 
         static CsGameManager()
         {
-            VBSPFile.OnLoaded -= OnBspLoaded;
-            VBSPFile.OnLoaded += OnBspLoaded;
+            VBSPFile.OnLoaded -= OnBspLoadedStatic;
+            VBSPFile.OnLoaded += OnBspLoadedStatic;
         }
 
-        static void OnBspLoaded(Stream stream)
+        private void Awake()
+        {
+            if (null != Instance)
+                return;
+
+            Instance = this;
+        }
+
+        static void OnBspLoadedStatic(Stream stream)
+        {
+            if (null == Instance)
+                Instance = FindObjectOfType<CsGameManager>();
+
+            if (Instance != null)
+                Instance.OnBspLoaded(stream);
+        }
+
+        void OnBspLoaded(Stream stream)
         {
             // initialize SourceUtils
-
             stream.Position = 0;
-
             using ValveBspFile bspFile = new ValveBspFile(((FileStream)stream).Name);
-            
+
+            this.SetupLights();
+
+            // notify others
             OnMapLoaded(bspFile);
 
             bspFile.Dispose();
+        }
+
+        void SetupLights()
+        {
+            if (null == VBSPFile.WorldLightsGroup)
+                return;
+
+            var lights = VBSPFile.WorldLightsGroup.GetComponentsInChildren<Light>();
+            foreach (Light light in lights)
+            {
+                if (light.type != LightType.Directional)
+                {
+                    light.renderingLayerMask = this.dynamicLightsLayerMask.value; // this is for receiving shadows ?
+                    light.cullingMask = this.dynamicLightsLayerMask.value; // this is for receiving light ?
+                }
+
+                light.lightShadowCasterMode = this.lightShadowCasterMode;
+            }
+        }
+
+        private void OnValidate()
+        {
+            this.SetupLights();
         }
     }
 }
