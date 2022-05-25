@@ -49,6 +49,7 @@ namespace CsUnity
             using ValveBspFile bspFile = new ValveBspFile(((FileStream)stream).Name);
 
             this.SetupLights();
+            this.SetupCamera();
 
             // notify others
             OnMapLoaded(bspFile);
@@ -80,6 +81,20 @@ namespace CsUnity
         private void OnValidate()
         {
             this.SetupLights();
+        }
+
+        void SetupCamera()
+        {
+            if (null == VBSPFile.EntitiesGroup)
+                return;
+
+            var spawn = VBSPFile.EntitiesGroup.Find("info_player_counterterrorist");
+            if (null == spawn)
+                return;
+
+            var cameras = Camera.allCameras;
+            foreach (var camera in cameras)
+                camera.transform.SetPositionAndRotation(spawn.transform.position, spawn.transform.rotation);
         }
     }
 }
