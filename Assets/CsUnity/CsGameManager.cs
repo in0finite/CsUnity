@@ -16,6 +16,8 @@ namespace CsUnity
         public LayerMask dynamicLightsLayerMask = 0;
         public LightShadowCasterMode lightShadowCasterMode = LightShadowCasterMode.Default;
 
+        public bool setEnvironmentLightingSourceToSkybox = true;
+
 
         static CsGameManager()
         {
@@ -56,6 +58,9 @@ namespace CsUnity
 
         void SetupLights()
         {
+            if (this.setEnvironmentLightingSourceToSkybox)
+                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox;
+
             if (null == VBSPFile.WorldLightsGroup)
                 return;
 
