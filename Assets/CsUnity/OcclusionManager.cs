@@ -21,6 +21,8 @@ namespace CsUnity
         private static Dictionary<int, List<BspTree.Leaf>> m_leafsPerCluster = 
             new Dictionary<int, List<BspTree.Leaf>>();
 
+        public static IReadOnlyDictionary<int, List<BspTree.Leaf>> LeafsPerCluster => m_leafsPerCluster;
+
         private static BspTree m_worldSpawnBspTree;
 
         public struct RendererInfo
@@ -309,7 +311,7 @@ namespace CsUnity
             Gizmos.DrawWireCube((min + max) * 0.5f, max - min);
         }
 
-        static UnityEngine.Vector3 Convert(Vector3S v)
+        public static UnityEngine.Vector3 Convert(Vector3S v)
         {
             var Vector3D = v.ToUnityVec3();
 
