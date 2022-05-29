@@ -6,11 +6,11 @@ using uSource;
 using uSource.Formats.Source.VBSP;
 using System.Linq;
 
-namespace CsUnity
+namespace CsUnity.Editor
 {
     public class LightMenuTools
     {
-        [MenuItem("CS Unity/Select directional light")]
+        [MenuItem(EditorCore.MenuName + "/Select directional light")]
         static void SelectDirectionalLight()
         {
             var light = Object.FindObjectsOfType<Light>().FirstOrDefault(l => l.type == LightType.Directional);
