@@ -214,5 +214,49 @@ namespace CsUnity
             color.w = 1f;
             return color;*/
         }
+
+        public static void ReloadMap()
+        {
+            var loader = Object.FindObjectOfType<uLoader>();
+            if (null == loader)
+            {
+                Debug.LogError("Loader object not found");
+                return;
+            }
+
+            DestroyWorlds();
+
+            // need to load preset, or otherwise it can be overwritten with default values
+            if (!uLoader.PresetLoaded)
+                uLoader.LoadPreset();
+
+            uLoaderEditor.OnLoadBspPressed();
+        }
+
+        private static void DestroyWorlds()
+        {
+            var worlds = Object.FindObjectsOfType<WorldRoot>();
+            foreach (var world in worlds)
+                Object.DestroyImmediate(world.gameObject);
+        }
+
+        public static string[] EnumerateMaps()
+        {
+            uLoader uLoader = Object.FindObjectOfType<uLoader>();
+            if (null == uLoader)
+                return System.Array.Empty<string>();
+
+            if (!uLoader.PresetLoaded)
+                uLoader.LoadPreset();
+
+            if (uLoader.ModFolders == null || uLoader.ModFolders.Length == 0)
+                return System.Array.Empty<string>();
+
+            string mapsFolder = Path.Combine(uLoader.RootPath, uLoader.ModFolders[0], "maps");
+            if (!Directory.Exists(mapsFolder))
+                return System.Array.Empty<string>();
+
+            return Directory.EnumerateFiles(mapsFolder, "*.bsp", SearchOption.TopDirectoryOnly).ToArray();
+        }
     }
 }
