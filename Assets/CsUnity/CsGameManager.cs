@@ -20,6 +20,7 @@ namespace CsUnity
         public LightShadowCasterMode lightShadowCasterMode = LightShadowCasterMode.Default;
 
         public bool setEnvironmentLightingSourceToSkybox = true;
+        public float skyboxIntensity = 0.75f;
 
         private IBspLeaf[] m_leaves = System.Array.Empty<IBspLeaf>();
         private LeafAmbientLighting[] m_leafAmbientLightings = System.Array.Empty<LeafAmbientLighting>();
@@ -70,7 +71,10 @@ namespace CsUnity
         void SetupLights()
         {
             if (this.setEnvironmentLightingSourceToSkybox)
+            {
                 RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox;
+                RenderSettings.ambientIntensity = this.skyboxIntensity;
+            }
 
             if (null == VBSPFile.WorldLightsGroup)
                 return;
