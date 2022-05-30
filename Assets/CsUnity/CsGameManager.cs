@@ -205,14 +205,14 @@ namespace CsUnity
 
         private static Color ConvertColor(VBSPStruct.ColorRGBExp32 colorRGBExp32)
         {
-            var color = VBSPFile.ConvertColorToGamma(colorRGBExp32);
+            /*var color = VBSPFile.ConvertColorToGamma(colorRGBExp32);
             color.a = 255;
-            return color;
-
-            /*float pow = Mathf.Pow(2f, colorRGBExp32.exponent);
-            var color = new UnityEngine.Vector4(colorRGBExp32.r, colorRGBExp32.g, colorRGBExp32.b) * pow / 255f;
-            color.w = 1f;
             return color;*/
+
+            float pow = Mathf.Pow(2f, colorRGBExp32.exponent);
+            var color = new UnityEngine.Vector4(colorRGBExp32.r, colorRGBExp32.g, colorRGBExp32.b) * pow;
+            color.w = 1f;
+            return ((Color)color).gamma;
         }
 
         public static void ReloadMap()
