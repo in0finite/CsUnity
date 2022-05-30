@@ -61,6 +61,7 @@ namespace CsUnity
             this.SetupLights();
             this.SetupCamera();
             this.SetupAmbientLights(bspFile);
+            ListFilesInPAKLump();
 
             // notify others
             OnMapLoaded(bspFile);
@@ -257,6 +258,15 @@ namespace CsUnity
                 return System.Array.Empty<string>();
 
             return Directory.EnumerateFiles(mapsFolder, "*.bsp", SearchOption.TopDirectoryOnly).ToArray();
+        }
+
+       private static void ListFilesInPAKLump()
+        {
+            PAKProvider pakProvider = uResourceManager.Providers?.OfType<PAKProvider>().FirstOrDefault();
+            if (null == pakProvider)
+                return;
+            
+            Debug.Log($"Files found in PAK lump [{pakProvider.files.Count}]:\r\n{string.Join("\r\n", pakProvider.files.Select(_ => $"[{_.Value}]: {_.Key}"))}");
         }
     }
 }
