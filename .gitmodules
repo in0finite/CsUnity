@@ -4,3 +4,6 @@
 [submodule "Assets/CsUnitySourceUtils"]
 	path = Assets/CsUnitySourceUtils
 	url = https://github.com/in0finite/CsUnitySourceUtils
+[submodule "Assets/UGameCoreUtilities"]
+	path = Assets/UGameCoreUtilities
+	url = https://github.com/in0finite/UGameCoreUtilities
