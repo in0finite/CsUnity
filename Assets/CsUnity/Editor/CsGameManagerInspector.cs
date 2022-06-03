@@ -32,7 +32,7 @@ namespace CsUnity.Editor
             {
                 if (GUILayout.Button(map))
                 {
-                    uLoader.MapName = map;
+                    uSettings.Instance.MapName = map;
                     CsGameManager.ReloadMap();
                 }
             }

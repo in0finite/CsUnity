@@ -322,12 +322,12 @@ namespace CsUnity
             Vector3D.y = Vector3D.z;
             Vector3D.z = tempX;
 
-            return Vector3D * uLoader.UnitScale;
+            return Vector3D * uSettings.Instance.UnitScale;
         }
 
         static SourceUtils.Vector3 Convert(UnityEngine.Vector3 v)
         {
-            v /= uLoader.UnitScale;
+            v /= uSettings.Instance.UnitScale;
 
             var result = new SourceUtils.Vector3();
 

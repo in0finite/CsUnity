@@ -12,6 +12,8 @@ namespace CsUnity
 {
     public class CsGameManager : MonoBehaviour
     {
+        public static uSettings Settings => uSettings.Instance;
+
         public static event System.Action<ValveBspFile> OnMapLoaded = delegate { };
 
         public static CsGameManager Instance { get; private set; }
@@ -152,7 +154,7 @@ namespace CsUnity
                         {
                             LeafAmbientLighting leafAmbientLigthing = m_leafAmbientLightings[ambientIndex.FirstAmbientSample + i];
                             
-                            var posPerc = OcclusionManager.Convert(new Vector3S(leafAmbientLigthing.X, leafAmbientLigthing.Y, leafAmbientLigthing.Z)) / uLoader.UnitScale / 255f;
+                            var posPerc = OcclusionManager.Convert(new Vector3S(leafAmbientLigthing.X, leafAmbientLigthing.Y, leafAmbientLigthing.Z)) / Settings.UnitScale / 255f;
                             DrawAmbientCube(leafAmbientLigthing.Cube, leaf, posPerc);
                         }
                     }
@@ -227,11 +229,7 @@ namespace CsUnity
 
             DestroyWorlds();
 
-            // need to load preset, or otherwise it can be overwritten with default values
-            if (!uLoader.PresetLoaded)
-                uLoader.LoadPreset();
-
-            uLoaderEditor.OnLoadBspPressed();
+            uLoader.OnLoadBspPressed();
         }
 
         private static void DestroyWorlds()
@@ -243,24 +241,20 @@ namespace CsUnity
 
         public static string[] EnumerateMaps()
         {
-            uLoader uLoader = Object.FindObjectOfType<uLoader>();
-            if (null == uLoader)
+            if (null == Settings)
                 return System.Array.Empty<string>();
 
-            if (!uLoader.PresetLoaded)
-                uLoader.LoadPreset();
-
-            if (uLoader.ModFolders == null || uLoader.ModFolders.Length == 0)
+            if (Settings.ModFolders == null || Settings.ModFolders.Length == 0)
                 return System.Array.Empty<string>();
 
-            string mapsFolder = Path.Combine(uLoader.RootPath, uLoader.ModFolders[0], "maps");
+            string mapsFolder = Path.Combine(Settings.RootPath, Settings.ModFolders[0], "maps");
             if (!Directory.Exists(mapsFolder))
                 return System.Array.Empty<string>();
 
             return Directory.EnumerateFiles(mapsFolder, "*.bsp", SearchOption.TopDirectoryOnly).ToArray();
         }
 
-       private static void ListFilesInPAKLump()
+        private static void ListFilesInPAKLump()
         {
             PAKProvider pakProvider = uResourceManager.Providers?.OfType<PAKProvider>().FirstOrDefault();
             if (null == pakProvider)
