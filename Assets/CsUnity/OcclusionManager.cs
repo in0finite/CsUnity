@@ -120,6 +120,7 @@ namespace CsUnity
                     continue;
 
                 var bounds = r.bounds;
+                bounds.size += UnityEngine.Vector3.one * 0.05f;
 
                 intersectingLeavesList.Clear();
                 intersectingClusters.Clear();
