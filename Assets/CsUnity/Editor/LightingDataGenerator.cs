@@ -28,7 +28,9 @@ namespace CsUnity.Editor
             if (maps.Length == 0)
                 throw new ArgumentException("You must provide maps, eg: -csMaps:de_dust2,de_inferno");
 
-            CoroutineManager.Start(RunCoroutine(maps), OnFinishWithSuccess, OnFinishWithError);
+            CmdLineUtils.TryGetStringArgument("csGameDir", out string overridenGameDir);
+
+            CoroutineManager.Start(RunCoroutine(maps, overridenGameDir), OnFinishWithSuccess, OnFinishWithError);
         }
 
         static void OnFinishWithSuccess()
@@ -49,7 +51,7 @@ namespace CsUnity.Editor
             if (null == uSettings.Instance)
                 throw new InvalidOperationException($"Failed to find {nameof(uSettings)} script in scene");
 
-            CoroutineManager.Start(RunCoroutine(new string[] { uSettings.Instance.MapName }), null, OnFinishFromMenuItemWithError);
+            CoroutineManager.Start(RunCoroutine(new string[] { uSettings.Instance.MapName }, null), null, OnFinishFromMenuItemWithError);
         }
 
         static void OnFinishFromMenuItemWithError(Exception exception)
@@ -57,7 +59,7 @@ namespace CsUnity.Editor
             Lightmapping.Cancel();
         }
 
-        private static IEnumerator RunCoroutine(string[] maps)
+        private static IEnumerator RunCoroutine(string[] maps, string overridenGameDir)
         {
             if (maps.Length == 0)
                 throw new ArgumentException("No maps provided");
@@ -73,7 +75,7 @@ namespace CsUnity.Editor
 
             foreach (string map in maps)
             {
-                foreach (var obj in GenerateForMap(map))
+                foreach (var obj in GenerateForMap(map, overridenGameDir))
                     yield return obj;
             }
 
@@ -83,7 +85,7 @@ namespace CsUnity.Editor
             yield return null;
         }
 
-        static IEnumerable GenerateForMap(string mapName)
+        static IEnumerable GenerateForMap(string mapName, string overridenGameDir)
         {
             var totalTimeStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -108,6 +110,9 @@ namespace CsUnity.Editor
 
             if (null == uSettings.Instance)
                 throw new InvalidOperationException($"Failed to find {nameof(uSettings)} script in scene");
+
+            if (!string.IsNullOrWhiteSpace(overridenGameDir))
+                uSettings.Instance.RootPath = overridenGameDir;
 
             var availableMaps = CsGameManager.EnumerateMaps();
             if (availableMaps.Length == 0)
