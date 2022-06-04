@@ -239,7 +239,7 @@ namespace CsUnity
                 Object.DestroyImmediate(world.gameObject);
         }
 
-        public static string[] EnumerateMaps()
+        public static string[] EnumerateMapsWithFullPaths()
         {
             if (null == Settings)
                 return System.Array.Empty<string>();
@@ -252,6 +252,13 @@ namespace CsUnity
                 return System.Array.Empty<string>();
 
             return Directory.EnumerateFiles(mapsFolder, "*.bsp", SearchOption.TopDirectoryOnly).ToArray();
+        }
+
+        public static string[] EnumerateMaps()
+        {
+            return EnumerateMapsWithFullPaths()
+                .Select(Path.GetFileNameWithoutExtension)
+                .ToArray();
         }
 
         private static void ListFilesInPAKLump()

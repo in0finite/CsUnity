@@ -47,9 +47,7 @@ namespace CsUnity.Editor
 
         private void EnumerateMaps()
         {
-            m_maps = CsGameManager.EnumerateMaps()
-                .Select(Path.GetFileNameWithoutExtension)
-                .ToArray();
+            m_maps = CsGameManager.EnumerateMaps();
         }
     }
 }
