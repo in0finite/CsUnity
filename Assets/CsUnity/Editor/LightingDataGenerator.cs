@@ -41,6 +41,7 @@ namespace CsUnity.Editor
 
         static void OnFinishWithError(Exception exception)
         {
+            Debug.LogError("\n\nAn error occured during lighting generation process, exiting Unity... \n\n");
             // exit Editor with error code
             EditorApplication.Exit(1);
         }
@@ -101,6 +102,9 @@ namespace CsUnity.Editor
 
             yield return null;
             yield return null;
+
+            if (EditorBuildSettings.scenes.Length == 0)
+                throw new InvalidOperationException("There are no scenes configured in build settings");
 
             Debug.Log("Opening scene");
             EditorSceneManager.OpenScene(EditorBuildSettings.scenes[0].path, OpenSceneMode.Single);
