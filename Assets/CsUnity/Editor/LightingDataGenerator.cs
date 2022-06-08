@@ -196,14 +196,15 @@ namespace CsUnity.Editor
 
         private static void SaveAllData(string mapName)
         {
-            //AssetDatabase.CreateAsset(Lightmapping.lightingDataAsset, $"Assets/CsUnity/LightingData/{mapName}_lightingData.asset");
-
             SaveCustomLightingData(mapName);
 
             SaveTextures(mapName);
 
             if (LightmapSettings.lightProbes != null)
                 SaveAsset(LightmapSettings.lightProbes, $"{mapName}_lightProbes.asset");
+
+            if (Lightmapping.lightingDataAsset != null)
+                SaveAsset(Lightmapping.lightingDataAsset, $"{mapName}_lightingData.asset");
         }
 
         private static void SaveCustomLightingData(string mapName)
