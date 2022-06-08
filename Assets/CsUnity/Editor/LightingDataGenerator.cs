@@ -13,6 +13,9 @@ namespace CsUnity.Editor
 {
     public class LightingDataGenerator
     {
+        public const string LightingDataFolderPath = "Assets/CsUnity/LightingData";
+
+
         private static void RunFromCommandLine()
         {
             string[] args = CmdLineUtils.GetCmdLineArgs();
@@ -46,7 +49,7 @@ namespace CsUnity.Editor
             EditorApplication.Exit(1);
         }
 
-        [MenuItem(EditorCore.MenuName + "/Generate lighting")]
+        [MenuItem(EditorCore.MenuName + "/Lighting/Generate lighting")]
         static void RunFromMenu()
         {
             if (null == uSettings.Instance)
@@ -173,7 +176,7 @@ namespace CsUnity.Editor
                 throw new Exception("Failed to generate lighting data asset");
 
             profiler.Restart("Saving lighting data");
-            SaveData(mapName);
+            SaveAllData(mapName);
             profiler.LogElapsed();
 
             yield return null;
@@ -191,14 +194,204 @@ namespace CsUnity.Editor
             yield return null;
         }
 
-        private static void SaveData(string mapName)
+        private static void SaveAllData(string mapName)
         {
-            AssetDatabase.CreateAsset(Lightmapping.lightingDataAsset, $"Assets/CsUnity/LightingData/{mapName}_lightingData.asset");
-            
-            // save renderers' data
-            
-            //var renderers = UnityEngine.Object.FindObjectOfType<Renderer>();
+            //AssetDatabase.CreateAsset(Lightmapping.lightingDataAsset, $"Assets/CsUnity/LightingData/{mapName}_lightingData.asset");
 
+            SaveCustomLightingData(mapName);
+
+            SaveTextures(mapName);
+
+            if (LightmapSettings.lightProbes != null)
+                SaveAsset(LightmapSettings.lightProbes, $"{mapName}_lightProbes.asset");
+        }
+
+        private static void SaveCustomLightingData(string mapName)
+        {
+            LightingData lightingData = ScriptableObject.CreateInstance<LightingData>();
+
+            lightingData.renderers = GetRenderersData();
+            lightingData.lightmapsMode = LightmapSettings.lightmapsMode;
+            lightingData.lightProbes = LightmapSettings.lightProbes?.bakedProbes?
+                .Select(_ => new SphericalHarmonicsSerializable(_))
+                .ToArray()
+                ?? Array.Empty<SphericalHarmonicsSerializable>();
+
+            SaveAsset(lightingData, $"{mapName}_customLightingData.asset");
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void SaveTextures(string mapName)
+        {
+            // save textures
+            var lightmapDatas = LightmapSettings.lightmaps;
+            for (int i = 0; i < lightmapDatas.Length; i++)
+            {
+                SaveAsset(lightmapDatas[i].lightmapColor, $"{mapName}_lightmapColor_{i}.asset");
+                SaveAsset(lightmapDatas[i].lightmapDir, $"{mapName}_lightmapDir_{i}.asset");
+                SaveAsset(lightmapDatas[i].shadowMask, $"{mapName}_shadowMask_{i}.asset");
+            }
+
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void SaveAsset(UnityEngine.Object obj, string name)
+        {
+            AssetDatabase.CreateAsset(obj, LightingDataFolderPath + "/" + name);
+        }
+
+        private static T LoadAssetIfExists<T>(string name)
+            where T : UnityEngine.Object
+        {
+            string path = LightingDataFolderPath + "/" + name;
+            return AssetDatabase.LoadAssetAtPath<T>(path);
+        }
+
+        private static T LoadAsset<T>(string name)
+            where T : UnityEngine.Object
+        {
+            string path = LightingDataFolderPath + "/" + name;
+            return AssetDatabase.LoadAssetAtPath<T>(path)
+                ?? throw new System.IO.FileNotFoundException($"Failed to load asset at path {path}");
+        }
+
+        private static RendererLightingData[] GetRenderersData()
+        {
+            var renderers = UnityEngine.Object.FindObjectsOfType<Renderer>();
+
+            var rendererLightingDatas = new RendererLightingData[renderers.Length];
+
+            for (int i = 0; i < rendererLightingDatas.Length; i++)
+            {
+                Renderer r = renderers[i];
+                var data = new RendererLightingData();
+                data.lightmapIndex = r.lightmapIndex;
+                data.lightmapScaleOffset = r.lightmapScaleOffset;
+                data.path = r.gameObject.GetGameObjectPath();
+                rendererLightingDatas[i] = data;
+            }
+
+            return rendererLightingDatas;
+        }
+
+        private static void RestoreAllData(string mapName)
+        {
+            var lightingData = LoadCustomLightingData(mapName);
+            LightmapSettings.lightmapsMode = lightingData.lightmapsMode; // need to set this before restoring textures
+            RestoreTextures(mapName);
+            RestoreCustomLightingData(lightingData);
+
+            var lightProbes = LoadAssetIfExists<LightProbes>($"{mapName}_lightProbes.asset");
+            if (lightProbes != null)
+                LightmapSettings.lightProbes = lightProbes;
+        }
+
+        private static LightingData LoadCustomLightingData(string mapName)
+        {
+            return LoadAsset<LightingData>($"{mapName}_customLightingData.asset");
+        }
+
+        private static void RestoreCustomLightingData(LightingData lightingData)
+        {
+            LightmapSettings.lightmapsMode = lightingData.lightmapsMode;
+            RestoreRenderersData(lightingData.renderers);
+        }
+
+        private static void RestoreRenderersData(RendererLightingData[] rendererLightingDatas)
+        {
+            var renderers = UnityEngine.Object.FindObjectsOfType<Renderer>();
+
+            if (renderers.Length != rendererLightingDatas.Length)
+            {
+                Debug.LogError($"num renderers {renderers.Length} not equal to num datas {rendererLightingDatas.Length}");
+                return;
+            }
+
+            for (int i = 0; i < rendererLightingDatas.Length; i++)
+            {
+                renderers[i].lightmapIndex = rendererLightingDatas[i].lightmapIndex;
+                renderers[i].lightmapScaleOffset = rendererLightingDatas[i].lightmapScaleOffset;
+            }
+        }
+
+        private static void RestoreTextures(string mapName)
+        {
+            var colors = ReadTextures($"{mapName}_lightmapColor_");
+            var dirs = ReadTextures($"{mapName}_lightmapDir_");
+            var shadowMasks = ReadTextures($"{mapName}_shadowMask_");
+
+            var lightmapDatas = new LightmapData[Mathf.Max(colors.Length, dirs.Length, shadowMasks.Length)];
+            for (int i = 0; i < lightmapDatas.Length; i++)
+            {
+                lightmapDatas[i] = new LightmapData
+                {
+                    lightmapColor = colors.ElementAtOrDefault(i),
+                    lightmapDir = dirs.ElementAtOrDefault(i),
+                    shadowMask = shadowMasks.ElementAtOrDefault(i),
+                };
+            }
+
+            LightmapSettings.lightmaps = lightmapDatas;
+        }
+
+        private static Texture2D[] ReadTextures(string prefix)
+        {
+            var list = new List<Texture2D>();
+            for (int i = 0; ; i++)
+            {
+                var texture = LoadAssetIfExists<Texture2D>($"{prefix}{i}.asset");
+                if (null == texture)
+                    break;
+                list.Add(texture);
+            }
+            return list.ToArray();
+        }
+
+        private static string GetMapName()
+        {
+            if (null == uSettings.Instance)
+                throw new InvalidOperationException($"Failed to find {nameof(uSettings)} script in scene");
+
+            if (string.IsNullOrWhiteSpace(uSettings.Instance.MapName))
+                throw new InvalidOperationException($"Map name is not assigned on {nameof(uSettings)} script");
+
+            return uSettings.Instance.MapName;
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Save all lighting data for current map")]
+        static void SaveAllLightingDataForCurrentMap()
+        {
+            SaveAllData(GetMapName());
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Restore all lighting data for current map")]
+        static void RestoreAllLightingDataForCurrentMap()
+        {
+            RestoreAllData(GetMapName());
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Save custom lighting data for current map")]
+        static void SaveCustomLightingDataForCurrentMap()
+        {
+            SaveCustomLightingData(GetMapName());
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Restore custom lighting data for current map")]
+        static void RestoreCustomLightingDataForCurrentMap()
+        {
+            RestoreCustomLightingData(LoadCustomLightingData(GetMapName()));
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Save textures for current map")]
+        static void SaveTexturesForCurrentMap()
+        {
+            SaveTextures(GetMapName());
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Restore textures for current map")]
+        static void RestoreTexturesForCurrentMap()
+        {
+            RestoreTextures(GetMapName());
         }
     }
 }
