@@ -207,6 +207,18 @@ namespace CsUnity.Editor
                 SaveAsset(Lightmapping.lightingDataAsset, $"{mapName}_lightingData.asset");
         }
 
+        private static void RestoreAllData(string mapName)
+        {
+            var lightingData = LoadCustomLightingData(mapName);
+            LightmapSettings.lightmapsMode = lightingData.lightmapsMode; // need to set this before restoring textures
+            RestoreTextures(mapName);
+            RestoreCustomLightingData(lightingData);
+
+            var lightProbes = LoadAssetIfExists<LightProbes>($"{mapName}_lightProbes.asset");
+            if (lightProbes != null)
+                LightmapSettings.lightProbes = lightProbes;
+        }
+
         private static void SaveCustomLightingData(string mapName)
         {
             LightingData lightingData = ScriptableObject.CreateInstance<LightingData>();
@@ -222,47 +234,15 @@ namespace CsUnity.Editor
             AssetDatabase.SaveAssets();
         }
 
-        private static void SaveTextures(string mapName)
+        private static LightingData LoadCustomLightingData(string mapName)
         {
-            // save textures
-            var lightmapDatas = LightmapSettings.lightmaps;
-            for (int i = 0; i < lightmapDatas.Length; i++)
-            {
-                SaveAsset(lightmapDatas[i].lightmapColor, $"{mapName}_lightmapColor_{i}.exr");
-                SaveAsset(lightmapDatas[i].lightmapDir, $"{mapName}_lightmapDir_{i}.exr");
-                SaveAsset(lightmapDatas[i].shadowMask, $"{mapName}_shadowMask_{i}.exr");
-            }
-
-            AssetDatabase.SaveAssets();
+            return LoadAsset<LightingData>($"{mapName}_customLightingData.asset");
         }
 
-        private static void SaveAsset(UnityEngine.Object obj, string name)
+        private static void RestoreCustomLightingData(LightingData lightingData)
         {
-            if (null == obj)
-                return;
-
-            if (AssetDatabase.Contains(obj))
-            {
-                AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(obj), LightingDataFolderPath + "/" + name);
-                return;
-            }
-
-            AssetDatabase.CreateAsset(obj, LightingDataFolderPath + "/" + name);
-        }
-
-        private static T LoadAssetIfExists<T>(string name)
-            where T : UnityEngine.Object
-        {
-            string path = LightingDataFolderPath + "/" + name;
-            return AssetDatabase.LoadAssetAtPath<T>(path);
-        }
-
-        private static T LoadAsset<T>(string name)
-            where T : UnityEngine.Object
-        {
-            string path = LightingDataFolderPath + "/" + name;
-            return AssetDatabase.LoadAssetAtPath<T>(path)
-                ?? throw new System.IO.FileNotFoundException($"Failed to load asset at path {path}");
+            LightmapSettings.lightmapsMode = lightingData.lightmapsMode;
+            RestoreRenderersData(lightingData.renderers);
         }
 
         private static RendererLightingData[] GetRenderersData()
@@ -284,29 +264,6 @@ namespace CsUnity.Editor
             return rendererLightingDatas;
         }
 
-        private static void RestoreAllData(string mapName)
-        {
-            var lightingData = LoadCustomLightingData(mapName);
-            LightmapSettings.lightmapsMode = lightingData.lightmapsMode; // need to set this before restoring textures
-            RestoreTextures(mapName);
-            RestoreCustomLightingData(lightingData);
-
-            var lightProbes = LoadAssetIfExists<LightProbes>($"{mapName}_lightProbes.asset");
-            if (lightProbes != null)
-                LightmapSettings.lightProbes = lightProbes;
-        }
-
-        private static LightingData LoadCustomLightingData(string mapName)
-        {
-            return LoadAsset<LightingData>($"{mapName}_customLightingData.asset");
-        }
-
-        private static void RestoreCustomLightingData(LightingData lightingData)
-        {
-            LightmapSettings.lightmapsMode = lightingData.lightmapsMode;
-            RestoreRenderersData(lightingData.renderers);
-        }
-
         private static void RestoreRenderersData(RendererLightingData[] rendererLightingDatas)
         {
             var renderers = UnityEngine.Object.FindObjectsOfType<Renderer>();
@@ -322,6 +279,20 @@ namespace CsUnity.Editor
                 renderers[i].lightmapIndex = rendererLightingDatas[i].lightmapIndex;
                 renderers[i].lightmapScaleOffset = rendererLightingDatas[i].lightmapScaleOffset;
             }
+        }
+
+        private static void SaveTextures(string mapName)
+        {
+            // save textures
+            var lightmapDatas = LightmapSettings.lightmaps;
+            for (int i = 0; i < lightmapDatas.Length; i++)
+            {
+                SaveAsset(lightmapDatas[i].lightmapColor, $"{mapName}_lightmapColor_{i}.exr");
+                SaveAsset(lightmapDatas[i].lightmapDir, $"{mapName}_lightmapDir_{i}.exr");
+                SaveAsset(lightmapDatas[i].shadowMask, $"{mapName}_shadowMask_{i}.exr");
+            }
+
+            AssetDatabase.SaveAssets();
         }
 
         private static void RestoreTextures(string mapName)
@@ -355,6 +326,35 @@ namespace CsUnity.Editor
                 list.Add(texture);
             }
             return list.ToArray();
+        }
+
+        private static void SaveAsset(UnityEngine.Object obj, string name)
+        {
+            if (null == obj)
+                return;
+
+            if (AssetDatabase.Contains(obj))
+            {
+                AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(obj), LightingDataFolderPath + "/" + name);
+                return;
+            }
+
+            AssetDatabase.CreateAsset(obj, LightingDataFolderPath + "/" + name);
+        }
+
+        private static T LoadAssetIfExists<T>(string name)
+            where T : UnityEngine.Object
+        {
+            string path = LightingDataFolderPath + "/" + name;
+            return AssetDatabase.LoadAssetAtPath<T>(path);
+        }
+
+        private static T LoadAsset<T>(string name)
+            where T : UnityEngine.Object
+        {
+            string path = LightingDataFolderPath + "/" + name;
+            return AssetDatabase.LoadAssetAtPath<T>(path)
+                ?? throw new System.IO.FileNotFoundException($"Failed to load asset at path {path}");
         }
 
         private static string GetMapName()
