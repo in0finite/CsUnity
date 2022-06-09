@@ -238,6 +238,15 @@ namespace CsUnity.Editor
 
         private static void SaveAsset(UnityEngine.Object obj, string name)
         {
+            if (null == obj)
+                return;
+
+            if (AssetDatabase.Contains(obj))
+            {
+                AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(obj), LightingDataFolderPath + "/" + name);
+                return;
+            }
+
             AssetDatabase.CreateAsset(obj, LightingDataFolderPath + "/" + name);
         }
 
