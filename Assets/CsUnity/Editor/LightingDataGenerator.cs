@@ -228,9 +228,9 @@ namespace CsUnity.Editor
             var lightmapDatas = LightmapSettings.lightmaps;
             for (int i = 0; i < lightmapDatas.Length; i++)
             {
-                SaveAsset(lightmapDatas[i].lightmapColor, $"{mapName}_lightmapColor_{i}.asset");
-                SaveAsset(lightmapDatas[i].lightmapDir, $"{mapName}_lightmapDir_{i}.asset");
-                SaveAsset(lightmapDatas[i].shadowMask, $"{mapName}_shadowMask_{i}.asset");
+                SaveAsset(lightmapDatas[i].lightmapColor, $"{mapName}_lightmapColor_{i}.exr");
+                SaveAsset(lightmapDatas[i].lightmapDir, $"{mapName}_lightmapDir_{i}.exr");
+                SaveAsset(lightmapDatas[i].shadowMask, $"{mapName}_shadowMask_{i}.exr");
             }
 
             AssetDatabase.SaveAssets();
@@ -340,7 +340,7 @@ namespace CsUnity.Editor
             var list = new List<Texture2D>();
             for (int i = 0; ; i++)
             {
-                var texture = LoadAssetIfExists<Texture2D>($"{prefix}{i}.asset");
+                var texture = LoadAssetIfExists<Texture2D>($"{prefix}{i}.exr");
                 if (null == texture)
                     break;
                 list.Add(texture);
