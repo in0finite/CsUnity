@@ -210,13 +210,19 @@ namespace CsUnity.Editor
         private static void RestoreAllData(string mapName)
         {
             var lightingData = LoadCustomLightingData(mapName);
+
             LightmapSettings.lightmapsMode = lightingData.lightmapsMode; // need to set this before restoring textures
             RestoreTextures(mapName);
-            RestoreCustomLightingData(lightingData);
-
+            
             var lightProbes = LoadAssetIfExists<LightProbes>($"{mapName}_lightProbes.asset");
             if (lightProbes != null)
                 LightmapSettings.lightProbes = lightProbes;
+
+            var lightingDataAsset = LoadAssetIfExists<LightingDataAsset>($"{mapName}_lightingData.asset");
+            if (lightingDataAsset != null)
+                Lightmapping.lightingDataAsset = lightingDataAsset;
+
+            RestoreCustomLightingData(lightingData);
         }
 
         private static void SaveCustomLightingData(string mapName)
