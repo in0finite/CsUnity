@@ -63,8 +63,7 @@ namespace CsUnity
             this.SetupLights();
             this.SetupCamera();
             this.SetupAmbientLights(bspFile);
-            ListFilesInPAKLump();
-
+            
             // notify others
             OnMapLoaded(bspFile);
 
