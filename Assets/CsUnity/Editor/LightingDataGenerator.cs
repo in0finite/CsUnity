@@ -116,6 +116,8 @@ namespace CsUnity.Editor
             yield return null;
             yield return null;
 
+            Debug.Log($"Bake backend: {Lightmapping.lightingSettings.lightmapper}");
+
             if (null == uSettings.Instance)
                 throw new InvalidOperationException($"Failed to find {nameof(uSettings)} script in scene");
 
