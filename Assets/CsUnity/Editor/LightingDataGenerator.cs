@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UGameCore.Utilities;
 using UnityEditor;
@@ -323,13 +324,19 @@ namespace CsUnity.Editor
 
         private static Texture2D[] ReadTextures(string prefix)
         {
-            var list = new List<Texture2D>();
+            return LoadNumberedAssetsWithFullPath<Texture2D>(LightingDataFolderPath + "/" + prefix, ".exr");
+        }
+
+        private static T[] LoadNumberedAssetsWithFullPath<T>(string prefix, string suffix)
+            where T : UnityEngine.Object
+        {
+            var list = new List<T>();
             for (int i = 0; ; i++)
             {
-                var texture = LoadAssetIfExists<Texture2D>($"{prefix}{i}.exr");
-                if (null == texture)
+                var asset = AssetDatabase.LoadAssetAtPath<T>($"{prefix}{i}{suffix}");
+                if (null == asset)
                     break;
-                list.Add(texture);
+                list.Add(asset);
             }
             return list.ToArray();
         }
@@ -361,6 +368,33 @@ namespace CsUnity.Editor
             string path = LightingDataFolderPath + "/" + name;
             return AssetDatabase.LoadAssetAtPath<T>(path)
                 ?? throw new System.IO.FileNotFoundException($"Failed to load asset at path {path}");
+        }
+
+        [MenuItem(EditorCore.MenuName + "/Lighting/Convert scene folder")]
+        private static void ConvertSceneFolder()
+        {
+            string mapName = GetMapName();
+
+            string scenePath = SceneManager.GetActiveScene().path;
+            if (string.IsNullOrWhiteSpace(scenePath))
+                throw new InvalidOperationException("Scene path is empty");
+
+            string sceneFolder = Path.Combine(Path.GetDirectoryName(scenePath), Path.GetFileNameWithoutExtension(scenePath));
+            if (!Directory.Exists(sceneFolder))
+                throw new InvalidOperationException($"Scene folder does not exist at {sceneFolder}");
+
+            var lightmapColors = LoadNumberedAssetsWithFullPath<Texture2D>(
+                Path.Combine(sceneFolder, "Lightmap-"),
+                "_comp_light.exr");
+            lightmapColors.ForEach((lightmap, i) => CopyAssetIfExists(AssetDatabase.GetAssetPath(lightmap), Path.Combine(LightingDataFolderPath, $"{mapName}_lightmapColor_{i}.exr")));
+
+            CopyAssetIfExists(Path.Combine(sceneFolder, "LightingData.asset"), Path.Combine(LightingDataFolderPath, $"{mapName}_lightingData.asset"));
+        }
+
+        private static void CopyAssetIfExists(string src, string dest)
+        {
+            if (AssetDatabase.GetMainAssetTypeAtPath(src) != null)
+                AssetDatabase.CopyAsset(src, dest);
         }
 
         private static string GetMapName()
