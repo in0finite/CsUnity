@@ -1,5 +1,5 @@
 using UnityEngine;
-using UGameCore.Utilities.Editor;
+using UGameCore.Utilities;
 
 namespace CsUnity
 {
