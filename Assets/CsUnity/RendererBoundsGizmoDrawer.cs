@@ -1,4 +1,5 @@
 using UnityEngine;
+using uSource.Formats.Source.VBSP;
 
 namespace CsUnity
 {
@@ -22,7 +23,7 @@ namespace CsUnity
 
         private void Draw(Renderer r)
         {
-            Gizmos.color = this.color;
+            var visibilitySystem = r.GetComponentInParent<VisibilitySystem>();
 
             Renderer[] renderers = this.includeChildren
                 ? r.GetComponentsInChildren<Renderer>()
@@ -30,17 +31,21 @@ namespace CsUnity
 
             foreach (var renderer in renderers)
             {
+                Gizmos.color = this.color;
+
                 var bounds = renderer.bounds;
                 if (this.wireframe)
                     Gizmos.DrawWireCube(bounds.center, bounds.size);
                 else
                     Gizmos.DrawCube(bounds.center, bounds.size);
 
-                if (this.drawSurroundingLeaves)
+                if (this.drawSurroundingLeaves && visibilitySystem != null)
                 {
                     Gizmos.color = Color.yellow;
-                    foreach (var leaf in OcclusionManager.GetAllLeavesIntersectingBounds(bounds))
-                        OcclusionManager.GizmosDrawCube(leaf.Info.Min, leaf.Info.Max);
+                    foreach (int leaf in visibilitySystem.GetAllLeavesIntersectingBounds(bounds))
+                        VisibilitySystem.GizmosDrawCube(
+                            visibilitySystem.bspLeaves[leaf].common.Min,
+                            visibilitySystem.bspLeaves[leaf].common.Max);
                 }
             }
         }
